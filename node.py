@@ -3,6 +3,8 @@ from blspy import (PrivateKey, Util, AugSchemeMPL, PopSchemeMPL,
                    G1Element, G2Element)
 import socket 
 import time
+from _thread import *
+import threading
 
 class Node:
     def __init__(self, seed, isLeader, connections, port, message):
@@ -12,12 +14,15 @@ class Node:
         self.isLeader = isLeader
         self.connections = connections
         self.port = port
-
+        self.aggregatedSignature = []
+        self.pks = []
+        self.msgs = []
+        
     def signMessage(self):
-        return PopSchemeMPL.sign(self.sk1, self.message)
+        return PopSchemeMPL.sign(self.sk, self.message)
 
     def getProof(self):
-        return PopSchemeMPL.pop_prove(self.sk1)
+        return PopSchemeMPL.pop_prove(self.sk)
 
     def verify(self, other_pk, other_pop):
         return PopSchemeMPL.pop_verify(other_pk, other_pop)
@@ -36,29 +41,36 @@ class Node:
         else:
             self.memberListen()
 
+    def parse(self, data):
+        pk0 = data[0:48]
+        proof0 = data[48:144]
+        mess0 = data[144:]
+
+        pk = G1Element.from_bytes(pk0)
+        message = G2Element.from_bytes(mess0)
+        proof = G2Element.from_bytes(proof0)
+        return pk, message, proof
+
+    def threaded(self, c, aggregatedSignature):
+        while True:
+    
+            data = c.recv(1024)
+            if not data:
+                # if data is not received break
+                break
+            pk, message, proof = self.parse(data)
+            valid = self.verify(pk, proof)
+            if valid : aggregatedSignature.append(message)
+            time.sleep(2)
+            agg_sig: G2Element = AugSchemeMPL.aggregate(aggregatedSignature)
+            print(len(aggregatedSignature), ' aggregated signatures = ', agg_sig)
+            c.send(bytes(agg_sig))  # send data to the client
+
+        c.close()  # close the connection
+
     def leaderListen(self):
         # put the socket into listening mode
-        host = socket.gethostname()  # as both code is running on same pc
-        port = 5074  # socket server port number
-
-        client_socket = socket.socket()  # instantiate
-        client_socket.connect((host, port))  # connect to the server
-
-        message = input(" -> ")  # take input
-
-        while message.lower().strip() != 'bye':
-            client_socket.send(message.encode())  # send message
-            data = client_socket.recv(1024).decode()  # receive response
-
-            print('Received from server: ' + data)  # show in terminal
-
-            message = input(" -> ")  # again take input
-
-        client_socket.close()  # close the connection
-
-    def memberListen(self):
-        # put the socket into listening mode
-            # get the hostname
+        # get the hostname
         host = socket.gethostname()
         port = 5074  # initiate port no above 1024
 
@@ -67,17 +79,36 @@ class Node:
         server_socket.bind((host, port))  # bind host address and port together
 
         # configure how many client the server can listen simultaneously
-        server_socket.listen(2)
-        conn, address = server_socket.accept()  # accept new connection
-        print("Connection from: " + str(address))
+        server_socket.listen(20)
         while True:
+            conn, address = server_socket.accept()  # accept new connection
+            print("Starting new thread for : " + str(address))
+            start_new_thread(self.threaded, (conn,self.aggregatedSignature))
             # receive data stream. it won't accept data packet greater than 1024 bytes
-            data = conn.recv(1024).decode()
-            if not data:
-                # if data is not received break
-                break
-            print("from connected user: " + str(data))
-            data = input(' -> ')
-            conn.send(data.encode())  # send data to the client
+        
 
-        conn.close()  # close the connection
+    def memberListen(self):
+      # put the socket into listening mode
+        host = socket.gethostname()  # as both code is running on same pc
+        port = 5074  # socket server port number
+
+        client_socket = socket.socket()  # instantiate
+        client_socket.connect((host, port))  # connect to the server
+
+        pubKey = bytes(self.pk)
+        proof = bytes(self.getProof())
+        signedMessage = bytes(self.signMessage())
+        
+        print('sending pk : ', len(pubKey),len(bytes(self.pk)))
+
+        message = pubKey+proof+signedMessage
+
+        while message.lower().strip() != 'bye':
+            client_socket.send(message)  # send message
+            data = client_socket.recv(1024).decode()  # receive response
+
+            print('Received from server: ' + data)  # show in terminal
+
+            message = input(" -> ")  # again take input
+
+        client_socket.close()  # close the connection
