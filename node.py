@@ -8,7 +8,7 @@ import threading
 import numpy as np
 
 class Node:
-    def __init__(self, seed, isLeader, connections, port, message):
+    def __init__(self, seed, isLeader, connections, port, message, protocol):
         self.sk = AugSchemeMPL.key_gen(seed)
         self.pk = self.sk.get_g1()
         self.message = message
@@ -18,9 +18,9 @@ class Node:
         self.aggregatedSignature = []
         self.pks = []
         self.msgs = []
-        self.pk0 = []
+        self.protocol = protocol
 
-    def signMessage(self):
+    def popSig(self):
         return PopSchemeMPL.sign(self.sk, self.message)
 
     def getProof(self):
@@ -41,15 +41,24 @@ class Node:
         else:
             self.memberListen()
 
-    def parse(self, data):
+    def parsePop(self, data):
         pk = data[0:48]
         proof = data[48:144]
-        msg0 = data[144:]
+        msg = data[144:]
 
         pk = G1Element.from_bytes(pk)
-        msg = G2Element.from_bytes(msg0)
+        msg = G2Element.from_bytes(msg)
         proof = G2Element.from_bytes(proof)
-        return pk, msg, proof, msg0
+        return pk, msg, proof
+
+    def parseBasic(self, data):
+        pk = data[0:48]
+        msg = data[48:53]
+        sig = data[53:]
+
+        pk = G1Element.from_bytes(pk)
+        sig = G2Element.from_bytes(sig)
+        return pk, msg, sig
 
     def compose(self,arr):
         byteObj = b''
@@ -57,54 +66,68 @@ class Node:
             byteObj += bytes(element)
         return byteObj
 
-    def threaded(self, c, aggregatedSignature, pks, msgs, pk0s):
+    def threaded(self, c, aggregatedSignature, pks, msgs):
         while True:
     
             data = c.recv(1024)
             if not data:
                 # if data is not received break
                 break
-
-            pk, msg, proof, msg0 = self.parse(data)
-            valid = self.verify(pk, proof)
-            print('Pop proof : ', valid)
-            # Collect pks, msgs, and aggregated signature to send to each member to validate the aggregated signature
-            if valid : 
-
-                aggregatedSignature.append(msg)
+            
+            if self.protocol == 'pop': 
+                pk, msg, proof = self.parsePop(data)
+                if self.verify(pk, proof):
+                    aggregatedSignature.append(msg)
+                    pks.append(pk)
+                    msgs.append(msg)
+            elif self.protocol == 'basic' : 
+                pk, msg, sig = self.parseBasic(data)
+                aggregatedSignature.append(sig)
                 pks.append(pk)
                 msgs.append(msg)
-                pk0s.append(msg0)
+
             # Wait for all threads to be finished processing message
             time.sleep(2)
-            agg_sig = bytes(PopSchemeMPL.aggregate(aggregatedSignature))
+
+            if self.protocol == 'pop': agg_sig = bytes(PopSchemeMPL.aggregate(aggregatedSignature))
+            elif self.protocol == 'basic': agg_sig = bytes(AugSchemeMPL.aggregate(aggregatedSignature))
             agg_pks = self.compose(pks)
             agg_msgs = self.compose(msgs)
-            print('OK : ', PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(agg_sig)))
+            print('pk : ', len(bytes(pks[0])))
+            print('aggpks : ', len(agg_pks))
+            print('msg : ', len(bytes(msgs[0])))
+            print('agg msgs : ', len(agg_msgs))
+            # print('OK : ', PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(agg_sig)))
             c.send(agg_sig+agg_pks+agg_msgs)  # send data to the client
 
         c.close()  # close the connection
 
     def leaderListen(self):
-        # put the socket into listening mode
-        # get the hostname
         host = socket.gethostname()
         port = 5074  # initiate port no above 1024
 
         server_socket = socket.socket()  # get instance
-        # look closely. The bind() function takes tuple as argument
         server_socket.bind((host, port))  # bind host address and port together
-
-        # configure how many client the server can listen simultaneously
         server_socket.listen(20)
         while True:
             conn, address = server_socket.accept()  # accept new connection
             print("Starting new thread for : " + str(address))
-            start_new_thread(self.threaded, (conn,self.aggregatedSignature, self.pks, self.msgs, self.pk0))
-            # receive data stream. it won't accept data packet greater than 1024 bytes
+            start_new_thread(self.threaded, (conn,self.aggregatedSignature, self.pks, self.msgs))
         
 
-    def parseMsg(self, payload):
+    def basicParse(self, payload):
+        pks=[]
+        msgs=[]
+        while(len(payload)!= 0):
+            pk = payload[:48]
+            msg = payload[len(payload)-5:]
+            pks.append(G1Element.from_bytes(pk))
+            msgs.append(msg)
+            payload = payload[48:len(payload)-5]
+
+        return pks, msgs[::-1]
+
+    def popParse(self, payload):
         pks=[]
         msgs=[]
         while(len(payload)!= 0):
@@ -125,20 +148,25 @@ class Node:
         client_socket.connect((host, port))  # connect to the server
 
         pubKey = bytes(self.pk)
-        proof = bytes(self.getProof())
-        signedMessage = bytes(self.signMessage())
-        
-        message = pubKey+proof+signedMessage
+        if self.protocol == 'pop' : 
+            popSig = bytes(self.popSig())
+            proof = bytes(self.getProof())
+            message = pubKey+proof+popSig
+        elif self.protocol == 'basic' : 
+            #need to send pubKey, msg, sig
+            msg = self.message
+            basicSig = bytes(AugSchemeMPL.sign(self.sk, msg))
+            message = pubKey+msg+basicSig
 
-        while message.lower().strip() != 'bye':
-            client_socket.send(message)  # send message
-            data = client_socket.recv(4096)  # receive response
-            sig = data[:96]
-            pks,msgs=self.parseMsg(data[96:])
-            print('pks : ', len(pks))
-            print('msgs : ', len(msgs))
-            print('sig : ', len(sig))
-            ok = PopSchemeMPL.aggregate_verify(pks, msgs, G2Element.from_bytes(sig))
-            print(ok)
+        client_socket.send(message)  # send message
+        data = client_socket.recv(4096)  # receive response
+        sig = data[:96]
 
+        if self.protocol == 'pop' : 
+            pks,msgs=self.popParse(data[96:])
+            ok = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
+        elif self.protocol == 'basic' : 
+            pks,msgs=self.basicParse(data[96:])        
+            ok = AugSchemeMPL.aggregate_verify(pks, msgs, G2Element.from_bytes(sig))
+        print('OK : ', ok)
         client_socket.close()  # close the connection
