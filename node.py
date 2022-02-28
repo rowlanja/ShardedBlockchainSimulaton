@@ -20,6 +20,8 @@ class Node:
         self.validated = False
         self.committeeSize = committeeSize
         self.nodeID = nodeID
+        self.sentMsgSize = 0
+        self.recvMsgSize = 0
 
     def popSig(self):
         return PopSchemeMPL.sign(self.sk, self.message)
@@ -68,10 +70,11 @@ class Node:
             byteObj += bytes(element)
         return byteObj
 
-    def threaded(self, c, aggregatedSignature, pks, msgs):
+    def threaded(self, c, aggregatedSignature, pks, msgs, recvMsgSize, sentMsgSize):
         while True:
     
             data = c.recv(4096)
+            recvMsgSize = data
             if not data:
                 # if data is not received break
                 break
@@ -88,16 +91,22 @@ class Node:
                 pks.append(pk)
                 msgs.append(msg)
 
+            # if len(pks) == (self.committeeSize-1):
+            time.sleep(0.1)
             # Wait for all threads to be finished processing message
-            time.sleep(2)
 
-            if self.protocol == 'pop': agg_sig = bytes(PopSchemeMPL.aggregate(aggregatedSignature))
-            elif self.protocol == 'basic': agg_sig = bytes(AugSchemeMPL.aggregate(aggregatedSignature))
-            agg_pks = self.compose(pks)
-            agg_msgs = self.compose(msgs)
-
+            if self.protocol == 'pop': 
+                agg_sig = bytes(PopSchemeMPL.aggregate(aggregatedSignature))
+                agg_pks = self.compose(pks)
+                msg = agg_sig+agg_pks
+                c.send(msg)  # send data to the client
+            elif self.protocol == 'basic': 
+                agg_sig = bytes(AugSchemeMPL.aggregate(aggregatedSignature))
+                agg_pks = self.compose(pks)
+                agg_msgs = self.compose(msgs)
+                msg = agg_sig+agg_pks+agg_msgs
+                c.send(msg)  # send data to the client
             # print(' Before sent OK : ', PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(agg_sig)))
-            c.send(agg_sig+agg_pks+agg_msgs)  # send data to the client
             c.close()  # close the connection
             break
 
@@ -110,7 +119,7 @@ class Node:
         connections = 0
         while connections != (self.committeeSize-1):
             conn, address = server_socket.accept()  # accept new connection
-            start_new_thread(self.threaded, (conn,self.aggregatedSignature, self.pks, self.msgs))
+            start_new_thread(self.threaded, (conn,self.aggregatedSignature, self.pks, self.msgs, self.recvMsgSize, self.sentMsgSize))
             connections+=1
         self.pks = []
         self.msgs = []
@@ -133,12 +142,10 @@ class Node:
         msgs=[]
         while(len(payload)!= 0):
             pk = payload[:48]
-            msg = payload[len(payload)-96:]
             pks.append(G1Element.from_bytes(pk))
-            msgs.append(msg)
-            payload = payload[48:len(payload)-96]
+            payload = payload[48:]
 
-        return pks, msgs[::-1]
+        return pks
 
     def memberListen(self):
       # put the socket into listening mode
@@ -163,12 +170,15 @@ class Node:
         data = client_socket.recv(4096)  # receive response
         sig = data[:96]
 
+        self.nodeToLeaderMsgSize = len(message)
+        self.leaderToNodeMsgSize = len(data)
+        print('recieved from leader during : ', self.protocol, " is ", len(data))
         if self.protocol == 'pop' : 
-            pks,msgs=self.popParse(data[96:])
+            pks=self.popParse(data[96:])
             ok = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
         elif self.protocol == 'basic' : 
             pks,msgs=self.basicParse(data[96:])        
             ok = AugSchemeMPL.aggregate_verify(pks, msgs, G2Element.from_bytes(sig))
         client_socket.close()  # close the connection
-        if ok : self.validated = True
-        print('ok : ', ok)
+        # if ok : self.validated = True
+        
