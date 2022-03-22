@@ -40,9 +40,11 @@ def simulation():
         pkiTimeTaken, pkiCommittee = runPBFT('pki',size)
         basicTimeTaken, basicCommittee = runPBFT('basic',size)
         popTimeTaken, popCommittee = runPBFT('pop', size)
+        leTimeTaken, leCommittee = runPBFT('le', size)
         saveResult('pki', size, pkiTimeTaken, pkiCommittee)
         saveResult('pop', size, popTimeTaken, popCommittee)
         saveResult('basic', size, basicTimeTaken, basicCommittee)
+        saveResult('le', size, leTimeTaken, leCommittee)
     writeResult("data.json", dataset)
     writeResult("msgSizes.json", msgSizes)
 

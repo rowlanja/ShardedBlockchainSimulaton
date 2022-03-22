@@ -11,10 +11,12 @@ class Analyse():
             popTimes = []
             basicTimes = []
             pktableTimes = []
+            leaderExcludedTimes = []
             popComitteeSize = []
             basicComitteeSize = []
             pktableComitteeSize = []
-            
+            leaderExcludedComitteeSize = []
+
             for key in data:
                 value = data[key]
                 time = float(value['timeTaken'])
@@ -28,11 +30,14 @@ class Analyse():
                 elif value['protocol'] == 'pki':
                     pktableTimes.append(time)
                     pktableComitteeSize.append(size)
-                
+                elif value['protocol'] == 'le':
+                    leaderExcludedTimes.append(time)
+                    leaderExcludedComitteeSize.append(size)                
 
             plt.plot(popComitteeSize, popTimes, label='Using POP security')
             plt.plot(basicComitteeSize, basicTimes, label='Using Basic security')
             plt.plot(pktableComitteeSize, pktableTimes, label='Using PK Cert Table security')
+            plt.plot(leaderExcludedComitteeSize, leaderExcludedTimes, label='Using Leader Excluded security')
 
             plt.xlabel('comittee size')
             plt.ylabel('PBFT time execution')
@@ -92,7 +97,10 @@ class Analyse():
 
             plt.plot(PKTComitteeSize, PKTNodeToLeaderMsgSizes, label='Node to Leader msg size ( PKCert Table )')
             plt.plot(PKTComitteeSize, PKTLeaderToNodeMsgSizes, label='Leader to Node msg size ( PKCert Table )')
-  
+
+            plt.plot(LEComitteeSize, LENodeToLeaderMsgSizes, label='Node to Leader msg size ( Leader Excluded )')
+            plt.plot(LEComitteeSize, LELeaderToNodeMsgSizes, label='Leader to Node msg size ( Leader Excluded )')
+
             plt.xlabel('comittee size')
             plt.ylabel('Msg size (bytes)')
             plt.legend()
