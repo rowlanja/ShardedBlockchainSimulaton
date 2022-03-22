@@ -20,7 +20,7 @@ def saveResult(protocol, committeeSize, timeTaken, committee):
         "committeeSize":str(committeeSize),
         "timeTaken":str(timeTaken)
     }
-    msgSizes[protocol+str(committeeSize)] = {
+    msgSizes[title] = {
         "protocol":protocol,
         "committeeSize":str(committeeSize),
         "nodeToLeader" : committee.nodeToLeaderMsgSize, 
@@ -33,14 +33,16 @@ def writeResult(filename, dict):
 
 
 def simulation():        
-    maxCommitteeSize = 12
+    maxCommitteeSize = 20
     minCommitteeSize = 3
     sizes = range(maxCommitteeSize)[minCommitteeSize:]
     for size in sizes:
+        pkiTimeTaken, pkiCommittee = runPBFT('pki',size)
         basicTimeTaken, basicCommittee = runPBFT('basic',size)
         popTimeTaken, popCommittee = runPBFT('pop', size)
-        saveResult('pop', size, popTimeTaken, basicCommittee)
-        saveResult('basic', size, basicTimeTaken, popCommittee)
+        saveResult('pki', size, pkiTimeTaken, pkiCommittee)
+        saveResult('pop', size, popTimeTaken, popCommittee)
+        saveResult('basic', size, basicTimeTaken, basicCommittee)
     writeResult("data.json", dataset)
     writeResult("msgSizes.json", msgSizes)
 

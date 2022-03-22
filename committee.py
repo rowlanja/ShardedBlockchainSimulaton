@@ -1,7 +1,8 @@
 from node import Node
 import threading
 import secrets
-
+from ca import CA 
+from blockchain import Blockchain
 
 class Committee:
     def __init__(self, protocol, committeeSize):
@@ -13,6 +14,7 @@ class Committee:
         self.committeeSize = committeeSize
         self.leaderToNodeMsgSize = 0
         self.nodeToLeaderMsgSize = 0
+
 
     def cleanUp(self):
         for x in self.nodes:
@@ -42,8 +44,17 @@ class Committee:
         node.runSignature(state)
 
     def main(self):
+        CAReference = CA()
+        BlockchainReference = Blockchain()
+        certificates = []
         for x in range(self.committeeSize):
-            if x == 0:self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x))
-            else :self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x))
+            if x == 0:self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, BlockchainReference))
+            else :self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, BlockchainReference))
+            certificates.append(self.nodes[len(self.nodes)-1].cert)
+        BlockchainReference.addCerts(certificates)
         self.PBFT()
+        # print('cert count : ', len(certificates))
+        # for cert in certificates:
+        #     print('cert pk : ', cert.pk)
+        # print('node pk : ', self.nodes[0].pk)
 
