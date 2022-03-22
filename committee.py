@@ -18,28 +18,28 @@ class Committee:
         for x in self.nodes:
             x.pks=[]
 
-    def runRound(self, phase):
+    def runRound(self, state):
         threads = []
         for index in range(len(self.nodes)):
             node = self.nodes[index]
-            x = threading.Thread(target=self.threadFunction, args=(node,))
+            x = threading.Thread(target=self.threadFunction, args=(node,state,))
             threads.append(x)
             x.start()
 
         for thread in threads:
             thread.join()
 
-        print('FINISHED : ', phase)
+        print('FINISHED : ', state)
 
     def PBFT(self):
-        self.runRound('Announce')
-        self.runRound('Prepare')
-        self.runRound('Commit')
+        self.runRound('pre-prepare')
+        self.runRound('prepare')
+        self.runRound('commit')
         self.nodeToLeaderMsgSize = (self.nodes[2].nodeToLeaderMsgSize)
         self.leaderToNodeMsgSize = (self.nodes[2].leaderToNodeMsgSize)
 
-    def threadFunction(self, node):
-        node.runSignature()
+    def threadFunction(self, node, state):
+        node.runSignature(state)
 
     def main(self):
         for x in range(self.committeeSize):

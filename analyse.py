@@ -75,6 +75,3 @@ class Analyse():
     
     def saveGraphs(self):
         time = datetime.now()
-
-analyse = Analyse()
-analyse.displayMsgSize()

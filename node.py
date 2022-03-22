@@ -22,6 +22,7 @@ class Node:
         self.nodeID = nodeID
         self.sentMsgSize = 0
         self.recvMsgSize = 0
+        self.blockhash = ''
 
     def popSig(self):
         return PopSchemeMPL.sign(self.sk, self.message)
@@ -38,11 +39,11 @@ class Node:
     def popAggregateVerify(self, pks, message, pop_sig_agg):
         return PopSchemeMPL.fast_aggregate_verify(pks, message, pop_sig_agg)
 
-    def runSignature(self):
+    def runSignature(self, state):
         if self.isLeader is True:
-            self.leaderListen()
+            self.leaderListen(state)
         else:
-            self.memberListen()
+            self.memberListen(state)
         return
 
     def parsePop(self, data):
@@ -70,11 +71,17 @@ class Node:
             byteObj += bytes(element)
         return byteObj
 
-    def threaded(self, c, aggregatedSignature, pks, msgs, recvMsgSize, sentMsgSize):
+    def broadcast(self, c):
+        while True:
+            c.send('BLOCKHASH'.encode())
+            c.close() 
+            break
+
+
+    def formMultiSig(self, c, aggregatedSignature, pks, msgs, recvMsgSize, sentMsgSize):
         while True:
     
             data = c.recv(4096)
-            recvMsgSize = data
             if not data:
                 # if data is not received break
                 break
@@ -110,17 +117,25 @@ class Node:
             c.close()  # close the connection
             break
 
-    def leaderListen(self):
+    def leaderListen(self, state):
+        print('leader state : ', state)
         host = socket.gethostname()
         port = 5074  # initiate port no above 1024
         server_socket = socket.socket()  # get instance
         server_socket.bind((host, port))  # bind host address and port together
         server_socket.listen(20)
-        connections = 0
-        while connections != (self.committeeSize-1):
-            conn, address = server_socket.accept()  # accept new connection
-            start_new_thread(self.threaded, (conn,self.aggregatedSignature, self.pks, self.msgs, self.recvMsgSize, self.sentMsgSize))
-            connections+=1
+        if state == 'pre-prepare':
+            connections = 0
+            while connections != (self.committeeSize-1):
+                conn, address = server_socket.accept()  # accept new connection
+                start_new_thread(self.broadcast, (conn,))
+                connections+=1
+        elif state == 'prepare' or state == 'commit':
+            connections = 0
+            while connections != (self.committeeSize-1):
+                conn, address = server_socket.accept()  # accept new connection
+                start_new_thread(self.formMultiSig, (conn,self.aggregatedSignature, self.pks, self.msgs, self.recvMsgSize, self.sentMsgSize))
+                connections+=1
         self.pks = []
         self.msgs = []
         self.aggregatedSignature = []
@@ -147,14 +162,15 @@ class Node:
 
         return pks
 
-    def memberListen(self):
-      # put the socket into listening mode
+    def memberListen(self, state):
+        # put the socket into listening mode
         host = socket.gethostname()  # as both code is running on same pc
         port = 5074  # socket server port number
 
         client_socket = socket.socket()  # instantiate
         client_socket.connect((host, port))  # connect to the server
 
+        # INFORMATION SENDING PHASE
         pubKey = bytes(self.pk)
         if self.protocol == 'pop' : 
             popSig = bytes(self.popSig())
@@ -165,14 +181,20 @@ class Node:
             msg = self.message
             basicSig = bytes(AugSchemeMPL.sign(self.sk, msg))
             message = pubKey+msg+basicSig
+        if state != 'pre-prepare':
+            client_socket.send(message)  # send message
 
-        client_socket.send(message)  # send message
+        # INFORMATION RECEIVING PHASE
         data = client_socket.recv(4096)  # receive response
-        sig = data[:96]
+        if state == 'pre-prepare':
+            self.blockhash = data.decode()
+            client_socket.close()  # close the connection
+            return
 
+        sig = data[:96]
         self.nodeToLeaderMsgSize = len(message)
         self.leaderToNodeMsgSize = len(data)
-        print('recieved from leader during : ', self.protocol, " is ", len(data))
+        # print('recieved from leader during : ', self.protocol, " is ", len(data))
         if self.protocol == 'pop' : 
             pks=self.popParse(data[96:])
             ok = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
@@ -182,3 +204,4 @@ class Node:
         client_socket.close()  # close the connection
         # if ok : self.validated = True
         
+ 
