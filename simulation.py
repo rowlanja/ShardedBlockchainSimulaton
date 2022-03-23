@@ -45,8 +45,8 @@ def simulation():
         saveResult('pop', size, popTimeTaken, popCommittee)
         saveResult('basic', size, basicTimeTaken, basicCommittee)
         saveResult('le', size, leTimeTaken, leCommittee)
-    writeResult("data.json", dataset)
-    writeResult("msgSizes.json", msgSizes)
+    writeResult("data/timeTaken.json", dataset)
+    writeResult("data/msgSizes.json", msgSizes)
 
 
 

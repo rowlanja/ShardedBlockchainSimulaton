@@ -5,7 +5,7 @@ from datetime import datetime
 import os
 class Analyse():
     def displaySpeed(self):
-        with open('data.json', 'r') as f:
+        with open('data/timeTaken.json', 'r') as f:
             data = json.load(f)
 
             popTimes = []
@@ -34,20 +34,21 @@ class Analyse():
                     leaderExcludedTimes.append(time)
                     leaderExcludedComitteeSize.append(size)                
 
-            plt.plot(popComitteeSize, popTimes, label='Using POP security')
-            plt.plot(basicComitteeSize, basicTimes, label='Using Basic security')
-            plt.plot(pktableComitteeSize, pktableTimes, label='Using PK Cert Table security')
-            plt.plot(leaderExcludedComitteeSize, leaderExcludedTimes, label='Using Leader Excluded security')
+            plt.plot(popComitteeSize, popTimes, label='Existing : Proof-of-Possession')
+            plt.plot(basicComitteeSize, basicTimes, label='Existing : Distinct Messages')
+            plt.plot(pktableComitteeSize, pktableTimes, label='Proposed : Public Key Cert Table ')
+            plt.plot(leaderExcludedComitteeSize, leaderExcludedTimes, label='Proposed : Leader Excluded')
 
             plt.xlabel('comittee size')
-            plt.ylabel('PBFT time execution')
+            plt.ylabel('Time taken to reach consensus (seconds)')
             plt.legend()
+            plt.title('Time Taken to Reach Consensus')
             path = 'results/'+'timeComparison'+str(datetime.now().strftime("%Y%m%d%H%M%S"))+'.png'
             plt.savefig(path)
             plt.show()
 
     def displayMsgSize(self):
-        with open('msgSizes.json', 'r') as f:
+        with open('data/msgSizes.json', 'r') as f:
             data = json.load(f)
 
             popNodeToLeaderMsgSizes = []
@@ -89,24 +90,33 @@ class Analyse():
                     LEComitteeSize.append(comSize)
                 
 
-            plt.plot(popComitteeSize, popNodeToLeaderMsgSizes, label='Node to Leader msg size ( PoP )')
-            plt.plot(popComitteeSize, popLeaderToNodeMsgSizes, label='Leader to Node msg size ( Pop )')
-
-            plt.plot(basicComitteeSize, basicNodeToLeaderMsgSizes, label='Node to Leader msg size ( DM ) ')
-            plt.plot(basicComitteeSize, basicLeaderToNodeMsgSizes, label='Leader to Node msg size ( DM )')
-
-            plt.plot(PKTComitteeSize, PKTNodeToLeaderMsgSizes, label='Node to Leader msg size ( PKCert Table )')
-            plt.plot(PKTComitteeSize, PKTLeaderToNodeMsgSizes, label='Leader to Node msg size ( PKCert Table )')
-
-            plt.plot(LEComitteeSize, LENodeToLeaderMsgSizes, label='Node to Leader msg size ( Leader Excluded )')
-            plt.plot(LEComitteeSize, LELeaderToNodeMsgSizes, label='Leader to Node msg size ( Leader Excluded )')
-
+            plt.plot(popComitteeSize, popLeaderToNodeMsgSizes, label='Existing : Proof-of-Possession')
+            plt.plot(basicComitteeSize, basicLeaderToNodeMsgSizes, label='Existing : Distinct Messages')
+            plt.plot(PKTComitteeSize, PKTLeaderToNodeMsgSizes, label='Proposed : Public Key Cert Table')
+            plt.plot(LEComitteeSize, LELeaderToNodeMsgSizes, label='Proposed : Leader Excluded')
             plt.xlabel('comittee size')
-            plt.ylabel('Msg size (bytes)')
+            plt.ylabel('Msg Size (bytes)')
             plt.legend()
-            path = 'results/'+'msgSizeComparison'+str(datetime.now().strftime("%Y%m%d%H%M%S"))+'.png'
+            plt.title('Message Size from Leader to Member')
+            path = 'results/'+'msgSizeLeadertoMemberComparison'+str(datetime.now().strftime("%Y%m%d%H%M%S"))+'.png'
             plt.savefig(path)
             plt.show()
+            plt.clf()
+
+            plt.plot(popComitteeSize, popNodeToLeaderMsgSizes, label='Existing : Proof-of-Possession')
+            plt.plot(basicComitteeSize, basicNodeToLeaderMsgSizes, label='Existing : Distinct Messages')
+            plt.plot(PKTComitteeSize, PKTNodeToLeaderMsgSizes, label='Proposed : Public Key Cert Table')
+            plt.plot(LEComitteeSize, LENodeToLeaderMsgSizes, label='Proposed : Leader Excluded')
+            plt.xlabel('comittee size')
+            plt.ylabel('Msg Size (bytes)')
+            plt.legend()
+            plt.title('Message Size from Member to Leader')
+            path = 'results/'+'msgSizeMembertoLeaderComparison'+str(datetime.now().strftime("%Y%m%d%H%M%S"))+'.png'
+            plt.savefig(path)
+            plt.show()
+            plt.clf()
+
+
     
     def saveGraphs(self):
         time = datetime.now()
