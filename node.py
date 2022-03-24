@@ -320,6 +320,7 @@ class Node:
             verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
             assert(verifyLeader)
         
+        assert(verifyMultiSignature)
         # print(self.protocol, verifyMultiSignature)
         client_socket.close()  # close the connection
         
