@@ -50,12 +50,15 @@ class Node:
         return PopSchemeMPL.fast_aggregate_verify(pks, message, pop_sig_agg)
 
     def runSignature(self, state):
-        self.certtable = self.blockchain.getCerts()
-        if self.isLeader is True:
-            self.leaderListen(state)
-        else:
-            self.memberListen(state)
-        return
+        try : 
+            self.certtable = self.blockchain.getCerts()
+            if self.isLeader is True:
+                self.leaderListen(state)
+            else:
+                self.memberListen(state)
+            return
+        except : 
+            return
 
     def parseMemberPop(self, data):
         pk = data[0:48]
@@ -95,15 +98,13 @@ class Node:
         bitstring = bin(0)
         for index in range(len(self.certtable)):
             cert = self.certtable[index]
-            pk = arr[0]
             if cert.pk == self.pk:
                 bitstring += '0'
                 continue
-            if pk == cert.pk :
+            if cert.pk in arr :
                 bitstring += '1'
             else :
                 bitstring += '0'
-            arr = arr[1:]
         return bitstring.encode()
 
     def compose(self,arr):
@@ -321,7 +322,7 @@ class Node:
             bitstring = data[96:]
             pks=self.parseLeaderPKI(bitstring)     
             verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
-        
+    
         elif self.protocol == 'le' :
             leaderSig = G2Element.from_bytes(data[96:192])
             leaderPk = G1Element.from_bytes(data[192:240])
@@ -329,9 +330,8 @@ class Node:
             verifyLeader = AugSchemeMPL.verify(leaderPk, self.message, leaderSig)
             verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
             assert(verifyLeader)
-        print(verifyMultiSignature)
-        self.validated = verifyMultiSignature
-        # print(self.protocol, verifyMultiSignature)
+
+        self.validated = verifyMultiSignature       
         client_socket.close()  # close the connection
         
  

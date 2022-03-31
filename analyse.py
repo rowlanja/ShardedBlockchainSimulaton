@@ -89,7 +89,7 @@ class Analyse():
                     LELeaderToNodeMsgSizes.append(leaderToNode-1)
                     LEComitteeSize.append(comSize)
                 
-
+            
             plt.plot(popComitteeSize, popLeaderToNodeMsgSizes, label='Existing : Proof-of-Possession')
             plt.plot(basicComitteeSize, basicLeaderToNodeMsgSizes, label='Existing : Distinct Messages')
             plt.plot(PKTComitteeSize, PKTLeaderToNodeMsgSizes, label='Proposed : Public Key Cert Table')
@@ -103,10 +103,13 @@ class Analyse():
             plt.show()
             plt.clf()
 
-            plt.plot(popComitteeSize, popNodeToLeaderMsgSizes, label='Existing : Proof-of-Possession')
-            plt.plot(basicComitteeSize, basicNodeToLeaderMsgSizes, label='Existing : Distinct Messages')
-            plt.plot(PKTComitteeSize, PKTNodeToLeaderMsgSizes, label='Proposed : Public Key Cert Table')
-            plt.plot(LEComitteeSize, LENodeToLeaderMsgSizes, label='Proposed : Leader Excluded')
+            barYs = [popNodeToLeaderMsgSizes[0], basicNodeToLeaderMsgSizes[0], PKTNodeToLeaderMsgSizes[0], LENodeToLeaderMsgSizes[0]]
+            barXs = ['PoP', 'DM', 'PKT', 'LE']
+            # plt.plot(popComitteeSize, popNodeToLeaderMsgSizes, label='Existing : Proof-of-Possession')
+            # plt.plot(basicComitteeSize, basicNodeToLeaderMsgSizes, label='Existing : Distinct Messages')
+            # plt.plot(PKTComitteeSize, PKTNodeToLeaderMsgSizes, label='Proposed : Public Key Cert Table')
+            # plt.plot(LEComitteeSize, LENodeToLeaderMsgSizes, label='Proposed : Leader Excluded')
+            plt.bar(barXs, barYs)
             plt.xlabel('comittee size')
             plt.ylabel('Msg Size (bytes)')
             plt.legend()

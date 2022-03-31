@@ -35,6 +35,36 @@ def checkValidRound(committee):
     if committee.validated == False:
         return False
 
+# creates a simulation for hardcoded sizes
+def simulationV2():
+    sizes = [3,6,10,16,32,50]
+    for size in sizes:
+        validPKI = False
+        validBasic = False
+        validPop = False
+        validLe = False
+        # re run any failed consensus round. Round can fail for weird reasons
+        while validPKI is False or validBasic is False or validPop is False or validLe is False :
+            if validPKI is False : 
+                pkiTimeTaken, pkiCommittee = runPBFT('pki',size)
+                validPKI = checkValidRound(pkiCommittee)
+            if validBasic is False : 
+                basicTimeTaken, basicCommittee = runPBFT('basic',size)
+                validBasic = checkValidRound(basicCommittee)
+            if validPop is False : 
+                popTimeTaken, popCommittee = runPBFT('pop', size)
+                validPop = checkValidRound(popCommittee)
+            if validLe is False : 
+                leTimeTaken, leCommittee = runPBFT('le', size)
+                validLe = checkValidRound(leCommittee)
+        saveResult('pki', size, pkiTimeTaken, pkiCommittee)
+        saveResult('pop', size, popTimeTaken, popCommittee)
+        saveResult('basic', size, basicTimeTaken, basicCommittee)
+        saveResult('le', size, leTimeTaken, leCommittee)
+    writeResult("data/timeTaken.json", dataset)
+    writeResult("data/msgSizes.json", msgSizes)
+
+# creates a simulation for range of sizes
 def simulation():        
     maxCommitteeSize = 30
     minCommitteeSize = 3
@@ -47,19 +77,15 @@ def simulation():
         # re run any failed consensus round. Round can fail for weird reasons
         while validPKI is False or validBasic is False or validPop is False or validLe is False :
             if validPKI is False : 
-                print('PKI ', size)
                 pkiTimeTaken, pkiCommittee = runPBFT('pki',size)
                 validPKI = checkValidRound(pkiCommittee)
             if validBasic is False : 
-                print('Basic ', size)
                 basicTimeTaken, basicCommittee = runPBFT('basic',size)
                 validBasic = checkValidRound(basicCommittee)
             if validPop is False : 
-                print('Pop ', size)
                 popTimeTaken, popCommittee = runPBFT('pop', size)
                 validPop = checkValidRound(popCommittee)
             if validLe is False : 
-                print('Le ', size)
                 leTimeTaken, leCommittee = runPBFT('le', size)
                 validLe = checkValidRound(leCommittee)
         saveResult('pki', size, pkiTimeTaken, pkiCommittee)
@@ -71,7 +97,7 @@ def simulation():
 
 
 
-simulation()
+simulationV2()
 analysis = Analyse()
 analysis.displaySpeed()
 analysis.displayMsgSize()
