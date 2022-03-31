@@ -1,3 +1,4 @@
+from pickle import FALSE, TRUE
 from blspy import (
     PrivateKey, 
     Util,
@@ -12,13 +13,13 @@ import threading
 import numpy as np
 from ca import CA 
 class Node:
-    def __init__(self, seed, isLeader, leaderPort, message, protocol, committeeSize, nodeID, CAReference, BlockchainReference):
+    def __init__(self, seed, isLeader, leaderPort, message, protocol, committeeSize, nodeID, CAReference, BlockchainReference, PopTable):
         self.sk = AugSchemeMPL.key_gen(seed)
         self.pk = self.sk.get_g1()
         self.message = message
         self.isLeader = isLeader
         self.protocol = protocol
-        self.validated = False
+        self.validated = True
         self.committeeSize = committeeSize
         self.nodeID = nodeID
         self.sentMsgSize = 0
@@ -28,9 +29,10 @@ class Node:
         self.pks = []
         self.msgs = []
         self.aggregatedSignature = []
-        self.pops = []
+        self.pops = PopTable
         self.cert = CAReference.createCert({'name':self.nodeID,'pk':self.pk})
         self.blockchain = BlockchainReference
+        self.pop = self.getProof()
 
     def popSig(self):
         return PopSchemeMPL.sign(self.sk, self.message)
@@ -57,13 +59,12 @@ class Node:
 
     def parseMemberPop(self, data):
         pk = data[0:48]
-        proof = data[48:144]
-        msg = data[144:]
+        sig = data[48:]
 
         pk = G1Element.from_bytes(pk)
-        msg = G2Element.from_bytes(msg)
-        proof = G2Element.from_bytes(proof)
-        return pk, msg, proof
+        sig = G2Element.from_bytes(sig)
+        # proof = G2Element.from_bytes(proof)
+        return pk, sig
 
     def parseMemberBasic(self, data):
         pk = data[0:48]
@@ -125,12 +126,11 @@ class Node:
                 break
             
             if self.protocol == 'pop': 
-                pk, msg, proof = self.parseMemberPop(data)
-                # if self.verify(pk, proof):
+                pk, msg = self.parseMemberPop(data)
                 aggregatedSignature.append(msg)
                 pks.append(pk)
                 msgs.append(msg)
-                pops.append(proof)
+                # pops.append(proof)
             elif self.protocol == 'basic' : 
                 pk, msg, sig = self.parseMemberBasic(data)
                 aggregatedSignature.append(sig)
@@ -247,6 +247,14 @@ class Node:
         #     PopSchemeMPL.pop_verify(pk, pop)
         return pks
 
+
+    def checkPopsTable(self, pks):
+        for pk in pks: 
+            if bytes(pk) not in self.pops.getPops().keys() : 
+                return FALSE
+        return TRUE 
+                 
+
     def parseLeaderPKI(self, payload):
         pks=[]
         payload = payload.decode()[3:]
@@ -272,7 +280,7 @@ class Node:
         if self.protocol == 'pop' : 
             popSig = bytes(self.popSig())
             proof = bytes(self.getProof())
-            message = pk+proof+popSig
+            message = pk+popSig
         elif self.protocol == 'basic' : 
             msg = self.message
             basicSig = bytes(AugSchemeMPL.sign(self.sk, msg))
@@ -302,6 +310,7 @@ class Node:
 
         if self.protocol == 'pop' : 
             pks=self.parseLeaderPop(data[96:])
+            valid = self.checkPopsTable(pks)
             verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
         
         elif self.protocol == 'basic' : 
@@ -309,7 +318,8 @@ class Node:
             verifyMultiSignature = AugSchemeMPL.aggregate_verify(pks, msgs, G2Element.from_bytes(sig))
         
         elif self.protocol == 'pki' : 
-            pks=self.parseLeaderPKI(data[96:])     
+            bitstring = data[96:]
+            pks=self.parseLeaderPKI(bitstring)     
             verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
         
         elif self.protocol == 'le' :
@@ -319,8 +329,8 @@ class Node:
             verifyLeader = AugSchemeMPL.verify(leaderPk, self.message, leaderSig)
             verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
             assert(verifyLeader)
-        
-        assert(verifyMultiSignature)
+        print(verifyMultiSignature)
+        self.validated = verifyMultiSignature
         # print(self.protocol, verifyMultiSignature)
         client_socket.close()  # close the connection
         

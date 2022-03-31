@@ -31,16 +31,37 @@ def writeResult(filename, dict):
     with open(filename,'w') as file:
         json.dump(dict, file)
 
+def checkValidRound(committee):
+    if committee.validated == False:
+        return False
 
 def simulation():        
-    maxCommitteeSize = 20
+    maxCommitteeSize = 30
     minCommitteeSize = 3
     sizes = range(maxCommitteeSize)[minCommitteeSize:]
     for size in sizes:
-        pkiTimeTaken, pkiCommittee = runPBFT('pki',size)
-        basicTimeTaken, basicCommittee = runPBFT('basic',size)
-        popTimeTaken, popCommittee = runPBFT('pop', size)
-        leTimeTaken, leCommittee = runPBFT('le', size)
+        validPKI = False
+        validBasic = False
+        validPop = False
+        validLe = False
+        # re run any failed consensus round. Round can fail for weird reasons
+        while validPKI is False or validBasic is False or validPop is False or validLe is False :
+            if validPKI is False : 
+                print('PKI ', size)
+                pkiTimeTaken, pkiCommittee = runPBFT('pki',size)
+                validPKI = checkValidRound(pkiCommittee)
+            if validBasic is False : 
+                print('Basic ', size)
+                basicTimeTaken, basicCommittee = runPBFT('basic',size)
+                validBasic = checkValidRound(basicCommittee)
+            if validPop is False : 
+                print('Pop ', size)
+                popTimeTaken, popCommittee = runPBFT('pop', size)
+                validPop = checkValidRound(popCommittee)
+            if validLe is False : 
+                print('Le ', size)
+                leTimeTaken, leCommittee = runPBFT('le', size)
+                validLe = checkValidRound(leCommittee)
         saveResult('pki', size, pkiTimeTaken, pkiCommittee)
         saveResult('pop', size, popTimeTaken, popCommittee)
         saveResult('basic', size, basicTimeTaken, basicCommittee)
