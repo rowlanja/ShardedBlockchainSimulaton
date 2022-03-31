@@ -28,8 +28,9 @@ class Node:
         self.certtable = []
         self.pks = []
         self.msgs = []
+        self.pops = []
         self.aggregatedSignature = []
-        self.pops = PopTable
+        self.popTable = PopTable
         self.cert = CAReference.createCert({'name':self.nodeID,'pk':self.pk})
         self.blockchain = BlockchainReference
         self.pop = self.getProof()
@@ -49,16 +50,20 @@ class Node:
     def popAggregateVerify(self, pks, message, pop_sig_agg):
         return PopSchemeMPL.fast_aggregate_verify(pks, message, pop_sig_agg)
 
+    def checkPopsTable(self, pks):
+        for pk in pks: 
+            if bytes(pk) not in self.popTable.getPops().keys() : 
+                return False
+        return True 
+
     def runSignature(self, state):
-        try : 
-            self.certtable = self.blockchain.getCerts()
-            if self.isLeader is True:
-                self.leaderListen(state)
-            else:
-                self.memberListen(state)
-            return
-        except : 
-            return
+        self.certtable = self.blockchain.getCerts()
+        if self.isLeader is True:
+            self.leaderListen(state)
+        else:
+            self.memberListen(state)
+        return
+
 
     def parseMemberPop(self, data):
         pk = data[0:48]
@@ -146,13 +151,17 @@ class Node:
                 aggregatedSignature.append(sig)
                 pks.append(pk)
 
-            time.sleep(0.3)
+            time.sleep(0.6)
+            # time.sleep(0.1*self.committeeSize)
             # Wait for all threads to be finished processing message
+            # This could be refactored. 
 
             if self.protocol == 'pop': 
                 agg_sig = bytes(PopSchemeMPL.aggregate(aggregatedSignature))
                 agg_pks = self.compose(pks)
                 agg_pops = self.compose(pops)
+                validPkPops = self.checkPopsTable(pks)
+                assert(validPkPops)
                 msg = agg_sig+agg_pks
                 c.send(msg)  # send data to the client
 
@@ -203,11 +212,10 @@ class Node:
         
         for thread in threads:
             thread.join()
-        
+
         self.pks = []
         self.msgs = []
         self.aggregatedSignature = []
-        self.pops = []
 
     def parseLeaderLE(self, payload):
         pks = []
@@ -229,32 +237,32 @@ class Node:
 
         return pks, msgs[::-1]
 
+    def parseLeaderPopV1(self, payload):
+        pks=[]
+        pops=[]
+        while(len(payload)!= 0):
+            pk = payload[:48]
+            pks.append(G1Element.from_bytes(pk))
+            pop = payload[len(payload)-96:]
+            pops.append(G2Element.from_bytes(pop))
+            payload = payload[48:len(payload)-96]
+            payload = payload[48:]
+        pops.reverse()
+        for index in range(len(pks)):
+            pop = pops[index]
+            pk = pks[index]
+            PopSchemeMPL.pop_verify(pk, pop)
+        return pks
+
+
     def parseLeaderPop(self, payload):
         pks=[]
         pops=[]
         while(len(payload)!= 0):
             pk = payload[:48]
             pks.append(G1Element.from_bytes(pk))
-            
-            # pop = payload[len(payload)-96:]
-            # pops.append(G2Element.from_bytes(pop))
-            
-            # payload = payload[48:len(payload)-96]
             payload = payload[48:]
-        # pops.reverse()
-        # for index in range(len(pks)):
-        #     pop = pops[index]
-        #     pk = pks[index]
-        #     PopSchemeMPL.pop_verify(pk, pop)
         return pks
-
-
-    def checkPopsTable(self, pks):
-        for pk in pks: 
-            if bytes(pk) not in self.pops.getPops().keys() : 
-                return FALSE
-        return TRUE 
-                 
 
     def parseLeaderPKI(self, payload):
         pks=[]
@@ -299,7 +307,7 @@ class Node:
         
         
         # INFORMATION RECEIVING PHASE
-        data = client_socket.recv(4096)  # receive response
+        data = client_socket.recv(16000)  # receive response
         if state == 'pre-prepare':
             self.blockhash = data.decode()
             client_socket.close()  # close the connection
@@ -311,16 +319,17 @@ class Node:
 
         if self.protocol == 'pop' : 
             pks=self.parseLeaderPop(data[96:])
-            valid = self.checkPopsTable(pks)
+            validPkPops = self.checkPopsTable(pks)
+            assert(validPkPops)
             verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
-        
+
         elif self.protocol == 'basic' : 
             pks,msgs=self.parseLeaderBasic(data[96:])     
             verifyMultiSignature = AugSchemeMPL.aggregate_verify(pks, msgs, G2Element.from_bytes(sig))
         
         elif self.protocol == 'pki' : 
             bitstring = data[96:]
-            pks=self.parseLeaderPKI(bitstring)     
+            pks=self.parseLeaderPKI(bitstring)   
             verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
     
         elif self.protocol == 'le' :

@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 class Analyse():
     def displaySpeed(self):
+        print('displaying speed')
         with open('data/timeTaken.json', 'r') as f:
             data = json.load(f)
 
@@ -43,7 +44,7 @@ class Analyse():
             plt.ylabel('Time taken to reach consensus (seconds)')
             plt.legend()
             plt.title('Time Taken to Reach Consensus')
-            path = 'results/'+'timeComparison'+str(datetime.now().strftime("%Y%m%d%H%M%S"))+'.png'
+            path = 'results/'+'timeComparison'+'.png'
             plt.savefig(path)
             plt.show()
 
@@ -98,7 +99,7 @@ class Analyse():
             plt.ylabel('Msg Size (bytes)')
             plt.legend()
             plt.title('Message Size from Leader to Member')
-            path = 'results/'+'msgSizeLeadertoMemberComparison'+str(datetime.now().strftime("%Y%m%d%H%M%S"))+'.png'
+            path = 'results/'+'msgSizeLeadertoMemberComparison'+'.png'
             plt.savefig(path)
             plt.show()
             plt.clf()
@@ -110,11 +111,11 @@ class Analyse():
             # plt.plot(PKTComitteeSize, PKTNodeToLeaderMsgSizes, label='Proposed : Public Key Cert Table')
             # plt.plot(LEComitteeSize, LENodeToLeaderMsgSizes, label='Proposed : Leader Excluded')
             plt.bar(barXs, barYs)
-            plt.xlabel('comittee size')
+            plt.xlabel('Defence Mechanism')
             plt.ylabel('Msg Size (bytes)')
             plt.legend()
             plt.title('Message Size from Member to Leader')
-            path = 'results/'+'msgSizeMembertoLeaderComparison'+str(datetime.now().strftime("%Y%m%d%H%M%S"))+'.png'
+            path = 'results/'+'msgSizeMembertoLeaderComparison'+'.png'
             plt.savefig(path)
             plt.show()
             plt.clf()

@@ -20,7 +20,7 @@ class Committee:
         self.TimeA = 0
         self.TimeB = 0
         self.TimeC = 0
-        
+
     def cleanUp(self):
         for x in self.nodes:
             x.pks=[]
@@ -61,10 +61,9 @@ class Committee:
         popTable = PopTable()
         certificates = []
         pops = {}
-        pks = []
         for x in range(self.committeeSize):
-            if x == 0:self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, BlockchainReference, popTable))
-            else :self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, BlockchainReference, popTable))
+            if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, BlockchainReference, popTable))
+            else : self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, BlockchainReference, popTable))
             certificates.append(self.nodes[len(self.nodes)-1].cert)
             pops[bytes(self.nodes[len(self.nodes)-1].pk)] = self.nodes[len(self.nodes)-1].pop
             
