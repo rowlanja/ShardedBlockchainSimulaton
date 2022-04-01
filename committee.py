@@ -1,10 +1,10 @@
 from node import Node
+from blockchain import Blockchain
+from popTable import PopTable
+
 import threading
 import secrets
 from ca import CA 
-from blockchain import Blockchain
-from popTable import PopTable
-import time
 
 class Committee:
     def __init__(self, protocol, committeeSize):

@@ -1,7 +1,8 @@
 from committee import Committee
+from analyse import Analyse
 import json
 import time
-from analyse import Analyse
+
 dataset = {}
 msgSizes = {}
 def runPBFT(protocol, committeeSize):
