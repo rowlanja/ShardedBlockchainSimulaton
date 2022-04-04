@@ -12,6 +12,9 @@ class Cert:
         self.name = name
         self.pk = pk
         self.signature = signature
+    
+    def size(self):
+        return len(bytes(self.name) + bytes(self.pk) + bytes(self.signature))
 
 
 

@@ -74,8 +74,8 @@ class Analyse():
                 leaderToNode = float(value['leaderToNode'])
                 comSize =  int(value['committeeSize'])
                 if value['protocol'] == 'pop':
-                    popNodeToLeaderMsgSizes.append(nodeToLeader+1)
-                    popLeaderToNodeMsgSizes.append(leaderToNode+1)
+                    popNodeToLeaderMsgSizes.append(nodeToLeader-1)
+                    popLeaderToNodeMsgSizes.append(leaderToNode-1)
                     popComitteeSize.append(comSize)
                 elif value['protocol'] == 'basic':
                     basicNodeToLeaderMsgSizes.append(nodeToLeader-1)
@@ -120,7 +120,59 @@ class Analyse():
             plt.show()
             plt.clf()
 
+    def displayNodeSize(self):
+        with open('data/nodeSizes.json', 'r') as f:
+            data = json.load(f)
+
+            popNodeSizes = []
+            popComitteeSize = []            
+            
+            basicNodeSizes = []
+            basicComitteeSize = []
+
+            PKTNodeSizes = []
+            PKTComitteeSize = []
+
+            LENodeSizes = []
+            LEComitteeSize = []
+
+            for key in data:
+                value = data[key]
+                nodeSize = float(value['nodeSize'])
+                comSize =  int(value['committeeSize'])
+                if value['protocol'] == 'pop':
+                    popNodeSizes.append(nodeSize)
+                    popComitteeSize.append(comSize)
+                elif value['protocol'] == 'basic':
+                    basicNodeSizes.append(nodeSize)
+                    basicComitteeSize.append(comSize)
+                elif value['protocol'] == 'pki':
+                    PKTNodeSizes.append(nodeSize)
+                    PKTComitteeSize.append(comSize)
+                elif value['protocol'] == 'le':
+                    LENodeSizes.append(nodeSize)
+                    LEComitteeSize.append(comSize)
+                
+            
+            plt.plot(popComitteeSize, popNodeSizes, label='Existing : Proof-of-Possession')
+            plt.plot(basicComitteeSize, basicNodeSizes, label='Existing : Distinct Messages')
+            plt.plot(PKTComitteeSize, PKTNodeSizes, label='Proposed : Public Key Cert Table')
+            plt.plot(LEComitteeSize, LENodeSizes, label='Proposed : Leader Excluded')
+            plt.xlabel('Comittee size')
+            plt.ylabel('Node Size (bytes)')
+            plt.legend()
+            plt.title('Node Size')
+            path = 'results/'+'nodeSizeComparison'+'.png'
+            plt.savefig(path)
+            plt.show()
+            plt.clf()
+
+ 
 
     
     def saveGraphs(self):
         time = datetime.now()
+
+
+# analysis = Analyse()
+# analysis.displayNodeSize()

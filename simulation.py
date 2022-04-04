@@ -5,12 +5,13 @@ import time
 
 dataset = {}
 msgSizes = {}
+nodeSizes = {}
 def runPBFT(protocol, committeeSize):
     start = time.process_time()
     committee = Committee(protocol, committeeSize)
-    committee.main()
+    committee.initializeNodes()
     difference = time.process_time()-start
-    print(protocol, ' time Took : ', difference)
+    print(protocol, ' finished, time taken : ', difference)
     return difference, committee
 
 
@@ -27,6 +28,11 @@ def saveResult(protocol, committeeSize, timeTaken, committee):
         "nodeToLeader" : committee.nodeToLeaderMsgSize, 
         "leaderToNode" : committee.leaderToNodeMsgSize
     }
+    nodeSizes[title] = {
+        "protocol":protocol,
+        "committeeSize":str(committeeSize),
+        "nodeSize" : committee.nodeSize, 
+    }
     
 def writeResult(filename, dict):
     with open(filename,'w') as file:
@@ -38,7 +44,7 @@ def checkValidRound(committee):
 
 # creates a simulation for hardcoded sizes
 def simulationV2():
-    sizes = [40,50,60,70]
+    sizes = [4,6,8,10,12,14,16,18]
     for size in sizes:
         validPKI = False
         validBasic = False
@@ -64,6 +70,8 @@ def simulationV2():
         saveResult('le', size, leTimeTaken, leCommittee)
     writeResult("data/timeTaken.json", dataset)
     writeResult("data/msgSizes.json", msgSizes)
+    writeResult("data/nodeSizes.json", nodeSizes)
+
 
 # creates a simulation for range of sizes
 def simulation():        
@@ -95,6 +103,7 @@ def simulation():
         saveResult('le', size, leTimeTaken, leCommittee)
     writeResult("data/timeTaken.json", dataset)
     writeResult("data/msgSizes.json", msgSizes)
+    writeResult("data/nodeSizes.json", nodeSizes)
 
 
 
@@ -102,3 +111,4 @@ simulationV2()
 analysis = Analyse()
 analysis.displaySpeed()
 analysis.displayMsgSize()
+analysis.displayNodeSize()

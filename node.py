@@ -8,10 +8,12 @@ from blspy import (
     G2Element)
 import socket 
 import time
+import sys
 from _thread import *
 import threading
 import numpy as np
 from ca import CA 
+
 class Node:
     def __init__(self, seed, isLeader, leaderPort, message, protocol, committeeSize, nodeID, CAReference, BlockchainReference, PopTable):
         self.sk = AugSchemeMPL.key_gen(seed)
@@ -24,6 +26,7 @@ class Node:
         self.nodeID = nodeID
         self.sentMsgSize = 0
         self.recvMsgSize = 0
+        self.nodeSize = 0 
         self.blockhash = ''
         self.certtable = []
         self.pks = []
@@ -31,9 +34,28 @@ class Node:
         self.pops = []
         self.aggregatedSignature = []
         self.popTable = PopTable
-        self.cert = CAReference.createCert({'name':self.nodeID,'pk':self.pk})
+        if self.protocol == 'pki' : self.cert = CAReference.createCert({'name':self.nodeID,'pk':self.pk})
         self.blockchain = BlockchainReference
         self.pop = self.getProof()
+
+    def size(self, metadata):
+        size = 0
+        for data in metadata : 
+            for entry in data :
+                size += len(bytes(entry))
+
+        if self.protocol == 'pki' : 
+            for cert in self.certtable:
+                size+=cert.size()
+            size += self.cert.size()
+        if self.protocol == 'pop':
+            size += self.popTable.size() 
+            size += len(bytes(self.pop))
+            size += len(bytes(self.pops))  
+
+        size += len(bytes(self.pks))
+        size += len(bytes(self.msgs)) 
+        return size
 
     def popSig(self):
         return PopSchemeMPL.sign(self.sk, self.message)
@@ -57,11 +79,9 @@ class Node:
         return True 
 
     def runSignature(self, state):
-        self.certtable = self.blockchain.getCerts()
-        if self.isLeader is True:
-            self.leaderListen(state)
-        else:
-            self.memberListen(state)
+        if self.protocol == 'pki' : self.certtable = self.blockchain.getCerts()
+        if self.isLeader is True: self.leaderListen(state)
+        else: self.memberListen(state)
         return
 
 
@@ -71,7 +91,6 @@ class Node:
 
         pk = G1Element.from_bytes(pk)
         sig = G2Element.from_bytes(sig)
-        # proof = G2Element.from_bytes(proof)
         return pk, sig
 
     def parseMemberBasic(self, data):
@@ -102,20 +121,14 @@ class Node:
     def composeBitstring(self, arr):
         bitstring = bin(0)
         for index in range(len(self.certtable)):
-            cert = self.certtable[index]
-            if cert.pk == self.pk:
-                bitstring += '0'
-                continue
-            if cert.pk in arr :
-                bitstring += '1'
-            else :
-                bitstring += '0'
+            if self.certtable[index].pk == self.pk: bitstring += '0'
+            elif self.certtable[index].pk in arr : bitstring += '1'
+            else : bitstring += '0'
         return bitstring.encode()
 
     def compose(self,arr):
         byteObj = b''
-        for element in arr:
-            byteObj += bytes(element)
+        for element in arr: byteObj += bytes(element)
         return byteObj
 
     def broadcast(self, c, address):
@@ -124,80 +137,94 @@ class Node:
             c.close() 
             break
 
-    def multiSig(self, c, aggregatedSignature, pks, msgs, pops):
+    def handlePopMsg(self, data, sigs, pks, msgs):
+        pk, msg = self.parseMemberPop(data)
+        sigs.append(msg)
+        pks.append(pk)
+        msgs.append(msg)
+    
+    def handleBasicMsg(self, data, sigs, pks, msgs):
+        pk, msg, sig = self.parseMemberBasic(data)
+        sigs.append(sig)
+        pks.append(pk)
+        msgs.append(msg)
+
+    def handlePKIMsg(self, data, sigs, pks):
+        pk, sig = self.parseMemberPKI(data)
+        sigs.append(sig)
+        pks.append(pk)
+
+    def handleLEMsg(self, data, sigs, pks):
+        pk, sig = self.parseMemberLE(data)
+        sigs.append(sig)
+        pks.append(pk) 
+
+    def sendPopReply(self, c, sigs, pks, pops):
+        agg_sig = bytes(PopSchemeMPL.aggregate(sigs))
+        agg_pks = self.compose(pks)
+        agg_pops = self.compose(pops)
+        validPkPops = self.checkPopsTable(pks)
+        assert(validPkPops)
+        msg = agg_sig+agg_pks
+        c.send(msg)
+
+    def sendBasicReply(self, c, sigs, pks, msgs):
+        agg_sig = bytes(AugSchemeMPL.aggregate(sigs))
+        agg_pks = self.compose(pks)
+        agg_msgs = self.compose(msgs)
+        msg = agg_sig+agg_pks+agg_msgs
+        c.send(msg) 
+
+    def sendPKIReply(self, c, sigs, pks):
+        agg_sig = bytes(PopSchemeMPL.aggregate(sigs))
+        bitstring = self.composeBitstring(pks)
+        msg = agg_sig+bitstring
+        c.send(msg) 
+
+    def sendLEReply(self, c, sigs, pks):
+        self_sig = AugSchemeMPL.sign(self.sk, self.message)
+        agg_sig = bytes(PopSchemeMPL.aggregate(sigs))
+        agg_pks = self.compose(pks)
+        msg = agg_sig+bytes(self_sig)+bytes(self.pk)+agg_pks
+        c.send(msg) 
+
+    def multiSig(self, c, sigs, pks, msgs, pops):
         while True:
             data = c.recv(4096)
-            if not data:
-                # if data is not received break
-                break
+            if not data: break
             
-            if self.protocol == 'pop': 
-                pk, msg = self.parseMemberPop(data)
-                aggregatedSignature.append(msg)
-                pks.append(pk)
-                msgs.append(msg)
-                # pops.append(proof)
-            elif self.protocol == 'basic' : 
-                pk, msg, sig = self.parseMemberBasic(data)
-                aggregatedSignature.append(sig)
-                pks.append(pk)
-                msgs.append(msg)
-            elif self.protocol == 'pki' :
-                pk, sig = self.parseMemberPKI(data)
-                aggregatedSignature.append(sig)
-                pks.append(pk)
-            elif self.protocol == 'le': 
-                pk, sig = self.parseMemberLE(data)
-                aggregatedSignature.append(sig)
-                pks.append(pk)
+            if self.protocol == 'pop': self.handlePopMsg(data, sigs, pks, msgs)
+            elif self.protocol == 'basic' : self.handleBasicMsg(data, sigs, pks, msgs)
+            elif self.protocol == 'pki' :  self.handlePKIMsg(data, sigs, pks)
+            elif self.protocol == 'le':  self.handleLEMsg(data, sigs, pks)
 
             time.sleep(0.6)
             # time.sleep(0.1*self.committeeSize)
             # Wait for all threads to be finished processing message
             # This could be refactored. 
 
-            if self.protocol == 'pop': 
-                agg_sig = bytes(PopSchemeMPL.aggregate(aggregatedSignature))
-                agg_pks = self.compose(pks)
-                agg_pops = self.compose(pops)
-                validPkPops = self.checkPopsTable(pks)
-                assert(validPkPops)
-                msg = agg_sig+agg_pks
-                c.send(msg)  # send data to the client
-
-            elif self.protocol == 'basic': 
-                agg_sig = bytes(AugSchemeMPL.aggregate(aggregatedSignature))
-                agg_pks = self.compose(pks)
-                agg_msgs = self.compose(msgs)
-                msg = agg_sig+agg_pks+agg_msgs
-                c.send(msg)  # send data to the client
-
-            elif self.protocol == 'pki': 
-                agg_sig = bytes(PopSchemeMPL.aggregate(aggregatedSignature))
-                bitstring = self.composeBitstring(pks)
-                msg = agg_sig+bitstring
-                c.send(msg)  # send data to the client
-
-            elif self.protocol == 'le':
-                self_sig = AugSchemeMPL.sign(self.sk, self.message)
-                agg_sig = bytes(PopSchemeMPL.aggregate(aggregatedSignature))
-                agg_pks = self.compose(pks)
-                msg = agg_sig+bytes(self_sig)+bytes(self.pk)+agg_pks
-                c.send(msg)  # send data to the client
+            if self.protocol == 'pop': self.sendPopReply(c, sigs, pks, pops)
+            elif self.protocol == 'basic': self.sendBasicReply(c, sigs, pks, msgs)
+            elif self.protocol == 'pki': self.sendPKIReply(c, sigs, pks)
+            elif self.protocol == 'le': self.sendLEReply(c, sigs, pks)
 
             c.close()  # close the connection
             break
 
     def leaderListen(self, state):
         host = socket.gethostname()
-        port = 5074  # initiate port no above 1024
-        server_socket = socket.socket()  # get instance
-        server_socket.bind((host, port))  # bind host address and port together
+        port = 5074  
+        server_socket = socket.socket()  
+        server_socket.bind((host, port)) 
         server_socket.listen(20)
         threads = []
+        pks = []
+        msgs = []
+        sigs = []
+
         if state == 'pre-prepare':
             while len(threads) < (self.committeeSize-1):
-                conn, address = server_socket.accept()  # accept new connection
+                conn, address = server_socket.accept()  
                 x = threading.Thread(target=self.broadcast, args=(conn, address))
                 threads.append(x)
                 x.start()
@@ -206,16 +233,12 @@ class Node:
         elif state == 'prepare' or state == 'commit':
             while len(threads) != (self.committeeSize-1):
                 conn, address = server_socket.accept()  # accept new connection
-                x = threading.Thread(target=self.multiSig, args=(conn,self.aggregatedSignature, self.pks, self.msgs, self.pops))
+                x = threading.Thread(target=self.multiSig, args=(conn, sigs, pks, msgs, self.pops))
                 threads.append(x)
                 x.start()
         
         for thread in threads:
             thread.join()
-
-        self.pks = []
-        self.msgs = []
-        self.aggregatedSignature = []
 
     def parseLeaderLE(self, payload):
         pks = []
@@ -257,7 +280,6 @@ class Node:
 
     def parseLeaderPop(self, payload):
         pks=[]
-        pops=[]
         while(len(payload)!= 0):
             pk = payload[:48]
             pks.append(G1Element.from_bytes(pk))
@@ -314,32 +336,40 @@ class Node:
             return
 
         sig = data[:96]
-        self.nodeToLeaderMsgSize = len(message)
-        self.leaderToNodeMsgSize = len(data)
+
 
         if self.protocol == 'pop' : 
             pks=self.parseLeaderPop(data[96:])
             validPkPops = self.checkPopsTable(pks)
             verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
+            metadata = [pks]
             assert(validPkPops)
 
         elif self.protocol == 'basic' : 
             pks,msgs=self.parseLeaderBasic(data[96:])     
             verifyMultiSignature = AugSchemeMPL.aggregate_verify(pks, msgs, G2Element.from_bytes(sig))
-        
+            metadata = [pks, msgs]
+
         elif self.protocol == 'pki' : 
             bitstring = data[96:]
             pks=self.parseLeaderPKI(bitstring)   
             verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
-    
+            metadata = [pks]
+
         elif self.protocol == 'le' :
             leaderSig = G2Element.from_bytes(data[96:192])
             leaderPk = G1Element.from_bytes(data[192:240])
             pks =self.parseLeaderLE(data[240:])
             verifyLeader = AugSchemeMPL.verify(leaderPk, self.message, leaderSig)
             verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
+            metadata = [pks, [leaderSig, leaderPk]]
             assert(verifyLeader)
-
+        
+        print('End status : ', verifyMultiSignature)
+        # initialize various analytics 
+        self.nodeToLeaderMsgSize = len(message)
+        self.leaderToNodeMsgSize = len(data)
+        self.nodeSize = self.size(metadata)
         self.validated = verifyMultiSignature       
         client_socket.close()  # close the connection
         
