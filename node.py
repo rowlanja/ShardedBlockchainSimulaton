@@ -288,89 +288,110 @@ class Node:
 
     def parseLeaderPKI(self, payload):
         pks=[]
-        payload = payload.decode()[3:]
+        payload = payload.decode()[3:] # remove the appended datatype label
 
         for cert in self.certtable:
             isParticipant = payload[0:1]
-            if isParticipant == '1':
-                pks.append(G1Element.from_bytes(bytes(cert.pk)))
+            if isParticipant == '1': pks.append(G1Element.from_bytes(bytes(cert.pk)))
             payload = payload[1:]
         return pks
 
-    def memberListen(self, state):
-        # put the socket into listening mode
-        host = socket.gethostname()  # as both code is running on same pc
-        port = 5074  # socket server port number
+    def initPop(self):
+        pk = bytes(self.pk)
+        popSig = bytes(self.popSig())
+        proof = bytes(self.getProof())
+        message = pk+popSig
+        return message 
 
-        client_socket = socket.socket()  # instantiate
-        client_socket.connect((host, port))  # connect to the server
+    def initBasic(self):
+        pk = bytes(self.pk)
+        msg = self.message
+        basicSig = bytes(AugSchemeMPL.sign(self.sk, msg))
+        message = pk+msg+basicSig
+        return message 
+
+    def initPKI(self):
+        pk = bytes(self.pk)
+        msg = self.message
+        sig = bytes(self.popSig())
+        message = pk+sig
+        return message 
+
+    def initLE(self):
+        pk = bytes(self.pk)
+        msg = self.message
+        sig = bytes(self.popSig())
+        message = pk+sig  
+        return message 
+
+    def handlePreprepare(self, client_socket, data):
+        self.blockhash = data.decode()
+        client_socket.close() 
+        quit()
+
+    def handlePopResponse(self, data, sig):
+        pks=self.parseLeaderPop(data[96:])
+        validPkPops = self.checkPopsTable(pks)
+        verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
+        self.validated = verifyMultiSignature
+        self.nodeSize = self.size([pks])       
+        assert(validPkPops)
+        assert(verifyMultiSignature)
+
+    def handleBasicResponse(self, data, sig):
+        pks,msgs=self.parseLeaderBasic(data[96:])     
+        verifyMultiSignature = AugSchemeMPL.aggregate_verify(pks, msgs, G2Element.from_bytes(sig))
+        self.validated = verifyMultiSignature       
+        self.nodeSize = self.size([pks, msgs])
+        assert(verifyMultiSignature)
+
+    def handlePKIResponse(self, data, sig):
+        bitstring = data[96:]
+        pks=self.parseLeaderPKI(bitstring)   
+        verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
+        self.validated = verifyMultiSignature  
+        self.nodeSize = self.size([pks])     
+        assert(verifyMultiSignature)
+
+    def handleLEResponse(self, data, sig):
+        leaderSig = G2Element.from_bytes(data[96:192])
+        leaderPk = G1Element.from_bytes(data[192:240])
+        pks =self.parseLeaderLE(data[240:])
+        verifyLeader = AugSchemeMPL.verify(leaderPk, self.message, leaderSig)
+        verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
+        self.validated = verifyMultiSignature
+        self.nodeSize = self.size([pks, [leaderSig, leaderPk]])
+        assert(verifyLeader)
+        assert(verifyMultiSignature)
+
+    def memberListen(self, state):
+        host = socket.gethostname()  
+        client_socket = socket.socket()  
+        port = 5074  
+        client_socket.connect((host, port))
 
         # INFORMATION SENDING PHASE
-        pk = bytes(self.pk)
-
-        if self.protocol == 'pop' : 
-            popSig = bytes(self.popSig())
-            proof = bytes(self.getProof())
-            message = pk+popSig
-        elif self.protocol == 'basic' : 
-            msg = self.message
-            basicSig = bytes(AugSchemeMPL.sign(self.sk, msg))
-            message = pk+msg+basicSig
-        elif self.protocol == 'pki':
-            msg = self.message
-            sig = bytes(self.popSig())
-            message = pk+sig
-        elif self.protocol == 'le':
-            msg = self.message
-            sig = bytes(self.popSig())
-            message = pk+sig            
-        if state != 'pre-prepare':
-            client_socket.send(message)  # send message
-        
+        if self.protocol == 'pop' : message = self.initPop()
+        elif self.protocol == 'basic' :  message = self.initBasic()
+        elif self.protocol == 'pki':  message = self.initPKI()
+        elif self.protocol == 'le': message = self.initLE()         
+        if state != 'pre-prepare': client_socket.send(message) 
         
         # INFORMATION RECEIVING PHASE
         data = client_socket.recv(16000)  # receive response
-        if state == 'pre-prepare':
-            self.blockhash = data.decode()
-            client_socket.close()  # close the connection
-            return
+        if state == 'pre-prepare': self.handlePreprepare(client_socket, data)
 
         sig = data[:96]
-
-
-        if self.protocol == 'pop' : 
-            pks=self.parseLeaderPop(data[96:])
-            validPkPops = self.checkPopsTable(pks)
-            verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
-            metadata = [pks]
-            assert(validPkPops)
-
-        elif self.protocol == 'basic' : 
-            pks,msgs=self.parseLeaderBasic(data[96:])     
-            verifyMultiSignature = AugSchemeMPL.aggregate_verify(pks, msgs, G2Element.from_bytes(sig))
-            metadata = [pks, msgs]
-
-        elif self.protocol == 'pki' : 
-            bitstring = data[96:]
-            pks=self.parseLeaderPKI(bitstring)   
-            verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
-            metadata = [pks]
-
-        elif self.protocol == 'le' :
-            leaderSig = G2Element.from_bytes(data[96:192])
-            leaderPk = G1Element.from_bytes(data[192:240])
-            pks =self.parseLeaderLE(data[240:])
-            verifyLeader = AugSchemeMPL.verify(leaderPk, self.message, leaderSig)
-            verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
-            metadata = [pks, [leaderSig, leaderPk]]
-            assert(verifyLeader)
+        metadata = data[96:]
+        if self.protocol == 'pop' : self.handlePopResponse(data,sig)
+        elif self.protocol == 'basic' : self.handleBasicResponse(data,sig)
+        elif self.protocol == 'pki' : self.handlePKIResponse(data,sig)
+        elif self.protocol == 'le' : self.handleLEResponse(data,sig)
         
-        print('End status : ', verifyMultiSignature)
+        # assert(verifyMultiSignature)
         # initialize various analytics 
         self.nodeToLeaderMsgSize = len(message)
         self.leaderToNodeMsgSize = len(data)
-        self.nodeSize = self.size(metadata)
-        self.validated = verifyMultiSignature       
         client_socket.close()  # close the connection
         
  
