@@ -21,6 +21,10 @@ class CA:
         cert = Cert(credentials['name'],credentials['pk'],signature)
         return cert
 
+    def createEmptyCert(self):
+        return Cert(bytes(),bytes(),bytes())
+    
+
     def sign(self, credentials):
         credString = bytes(credentials['name'])+bytes(credentials['pk'])
         signature = PopSchemeMPL.sign(self.sk, credString)

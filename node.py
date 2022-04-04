@@ -29,12 +29,10 @@ class Node:
         self.nodeSize = 0 
         self.blockhash = ''
         self.certtable = []
-        self.pks = []
-        self.msgs = []
-        self.pops = []
         self.aggregatedSignature = []
         self.popTable = PopTable
         if self.protocol == 'pki' : self.cert = CAReference.createCert({'name':self.nodeID,'pk':self.pk})
+        else : self.cert = CAReference.createEmptyCert()
         self.blockchain = BlockchainReference
         self.pop = self.getProof()
 
@@ -44,14 +42,11 @@ class Node:
             for entry in data :
                 size += len(bytes(entry))
 
-        if self.protocol == 'pki' : 
-            for cert in self.certtable:
-                size+=cert.size()
-            size += self.cert.size()
-        if self.protocol == 'pop':
-            size += self.popTable.size() 
-            size += len(bytes(self.pop))
-            size += len(bytes(self.pops))  
+        for entry in self.certtable: size+=entry.size()
+        size += self.cert.size()
+        
+        size += self.popTable.size() 
+        size += len(bytes(self.pop))
 
         size += len(bytes(self.pks))
         size += len(bytes(self.msgs)) 
@@ -80,6 +75,8 @@ class Node:
 
     def runSignature(self, state):
         if self.protocol == 'pki' : self.certtable = self.blockchain.getCerts()
+        else : self.certtable = []
+
         if self.isLeader is True: self.leaderListen(state)
         else: self.memberListen(state)
         return
@@ -221,7 +218,7 @@ class Node:
         pks = []
         msgs = []
         sigs = []
-
+        pops = []
         if state == 'pre-prepare':
             while len(threads) < (self.committeeSize-1):
                 conn, address = server_socket.accept()  
@@ -233,7 +230,7 @@ class Node:
         elif state == 'prepare' or state == 'commit':
             while len(threads) != (self.committeeSize-1):
                 conn, address = server_socket.accept()  # accept new connection
-                x = threading.Thread(target=self.multiSig, args=(conn, sigs, pks, msgs, self.pops))
+                x = threading.Thread(target=self.multiSig, args=(conn, sigs, pks, msgs, pops))
                 threads.append(x)
                 x.start()
         
