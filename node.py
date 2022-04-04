@@ -38,11 +38,9 @@ class Node:
 
     def size(self, metadata):
         size = 0
-        for data in metadata : 
-            for entry in data :
-                size += len(bytes(entry))
-
+        for entry in metadata : size += len(bytes(entry))
         for entry in self.certtable: size+=entry.size()
+
         size += self.cert.size()
         
         size += self.popTable.size() 
@@ -331,7 +329,7 @@ class Node:
         validPkPops = self.checkPopsTable(pks)
         verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
         self.validated = verifyMultiSignature
-        self.nodeSize = self.size([pks])       
+        self.nodeSize = self.size(pks)       
         assert(validPkPops)
         assert(verifyMultiSignature)
 
@@ -339,7 +337,7 @@ class Node:
         pks,msgs=self.parseLeaderBasic(data[96:])     
         verifyMultiSignature = AugSchemeMPL.aggregate_verify(pks, msgs, G2Element.from_bytes(sig))
         self.validated = verifyMultiSignature       
-        self.nodeSize = self.size([pks, msgs])
+        self.nodeSize = self.size(pks + msgs)
         assert(verifyMultiSignature)
 
     def handlePKIResponse(self, data, sig):
@@ -347,7 +345,7 @@ class Node:
         pks=self.parseLeaderPKI(bitstring)   
         verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
         self.validated = verifyMultiSignature  
-        self.nodeSize = self.size([pks])     
+        self.nodeSize = self.size(pks)     
         assert(verifyMultiSignature)
 
     def handleLEResponse(self, data, sig):
@@ -357,7 +355,7 @@ class Node:
         verifyLeader = AugSchemeMPL.verify(leaderPk, self.message, leaderSig)
         verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
         self.validated = verifyMultiSignature
-        self.nodeSize = self.size([pks, [leaderSig, leaderPk]])
+        self.nodeSize = self.size(pks + [leaderSig, leaderPk])
         assert(verifyLeader)
         assert(verifyMultiSignature)
 
@@ -385,7 +383,6 @@ class Node:
         elif self.protocol == 'pki' : self.handlePKIResponse(data,sig)
         elif self.protocol == 'le' : self.handleLEResponse(data,sig)
         
-        # assert(verifyMultiSignature)
         # initialize various analytics 
         self.nodeToLeaderMsgSize = len(message)
         self.leaderToNodeMsgSize = len(data)
