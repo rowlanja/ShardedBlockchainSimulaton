@@ -1,3 +1,4 @@
+from asyncio.windows_events import NULL
 from node import Node
 from blockchain import Blockchain
 from popTable import PopTable
@@ -17,9 +18,8 @@ class Committee:
         self.committeeSize = committeeSize
         self.leaderToNodeMsgSize = 0
         self.nodeToLeaderMsgSize = 0
-        self.TimeA = 0
-        self.TimeB = 0
-        self.TimeC = 0
+        self.nodeSize = 0
+        self.timeTaken = 0
 
     def cleanUp(self):
         for x in self.nodes:
@@ -41,6 +41,11 @@ class Committee:
             if node.validated == False : 
                 self.validated = False
 
+    def checkNodeSize(self):
+        # we just use node two as a randomly chosen node to analyse the size of
+        node = self.nodes[2]
+        return node.nodeSize
+
     def PBFT(self):
         self.runState('pre-prepare')
         self.checkValidRound()
@@ -50,22 +55,33 @@ class Committee:
         self.checkValidRound()
         self.nodeToLeaderMsgSize = (self.nodes[2].nodeToLeaderMsgSize)
         self.leaderToNodeMsgSize = (self.nodes[2].leaderToNodeMsgSize)
-
+        self.nodeSize = self.checkNodeSize()
+        print('committee node size:  ', self.nodeSize)
 
     def threadFunction(self, node, state):
         node.runSignature(state)
 
-    def main(self):
+    def initializeNodes(self):
         CAReference = CA()
         BlockchainReference = Blockchain()
         popTable = PopTable()
         certificates = []
         pops = {}
         for x in range(self.committeeSize):
-            if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, BlockchainReference, popTable))
-            else : self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, BlockchainReference, popTable))
-            certificates.append(self.nodes[len(self.nodes)-1].cert)
-            pops[bytes(self.nodes[len(self.nodes)-1].pk)] = self.nodes[len(self.nodes)-1].pop
+            if self.protocol == 'pki':
+                if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, BlockchainReference, PopTable()))
+                else : self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, BlockchainReference, PopTable()))                
+                certificates.append(self.nodes[len(self.nodes)-1].cert)
+            elif self.protocol == 'basic':
+                if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, NULL, PopTable()))
+                else : self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, NULL, PopTable()))
+            elif self.protocol == 'pop':
+                if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, NULL, popTable))
+                else : self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, NULL, popTable))
+                pops[bytes(self.nodes[len(self.nodes)-1].pk)] = self.nodes[len(self.nodes)-1].pop
+            elif self.protocol == 'le':
+                if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, NULL, PopTable()))
+                else : self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, NULL, PopTable()))
             
         BlockchainReference.addCerts(certificates)
         popTable.addPops(pops)

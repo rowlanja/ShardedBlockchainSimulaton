@@ -14,3 +14,8 @@ class Blockchain:
     def getCerts(self):
         certs = self.blockchain
         return certs
+    
+    def size(self):
+        size = 0
+        for x in self.blockchain:
+            size
