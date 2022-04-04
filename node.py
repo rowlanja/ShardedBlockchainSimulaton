@@ -320,8 +320,8 @@ class Node:
         if self.protocol == 'pop' : 
             pks=self.parseLeaderPop(data[96:])
             validPkPops = self.checkPopsTable(pks)
-            assert(validPkPops)
             verifyMultiSignature = PopSchemeMPL.fast_aggregate_verify(pks, self.message, G2Element.from_bytes(sig))
+            assert(validPkPops)
 
         elif self.protocol == 'basic' : 
             pks,msgs=self.parseLeaderBasic(data[96:])     
