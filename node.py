@@ -35,7 +35,10 @@ class Node:
         else : self.cert = CAReference.createEmptyCert()
         self.blockchain = BlockchainReference
         self.pop = self.getProof()
-
+        self.pks = []
+        self.msgs = []
+        self.pops = []
+    
     def size(self, metadata):
         size = 0
         for entry in metadata : size += len(bytes(entry))

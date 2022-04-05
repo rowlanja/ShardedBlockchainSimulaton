@@ -44,7 +44,7 @@ def checkValidRound(committee):
 
 # creates a simulation for hardcoded sizes
 def simulationV2():
-    sizes = [4,6,8,10,12,14,16,18]
+    sizes = [40,45,50,55,60,65,70]
     for size in sizes:
         validPKI = False
         validBasic = False
