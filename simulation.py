@@ -44,13 +44,13 @@ def checkValidRound(committee):
 
 # creates a simulation for hardcoded sizes
 def simulationV2():
-    sizes = [4,6,8,10,12,14,16,18]
+    sizes = [40,45,50,55,60,65,70]
     for size in sizes:
         validPKI = False
         validBasic = False
         validPop = False
         validLe = False
-        # re run any failed consensus round. Round can fail for weird reasons
+        # re-run any failed consensus round. Round can fail for weird reasons
         while validPKI is False or validBasic is False or validPop is False or validLe is False :
             if validPKI is False : 
                 pkiTimeTaken, pkiCommittee = runPBFT('pki',size)
