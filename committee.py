@@ -60,34 +60,49 @@ class Committee:
 
     def threadFunction(self, node, state):
         node.runSignature(state)
+    
+    def updateables(self,certs,pops):
+        certs.append(self.nodes[len(self.nodes)-1].cert)
+        pops[bytes(self.nodes[len(self.nodes)-1].pk)] = self.nodes[len(self.nodes)-1].pop
+        
+    # def createNode(self, seed, port, message, certAuthority, blockchain, popTable, x, certs, pops):
+    #     if x == 0: node = (Node(seed, True, port,message, self.protocol,self.committeeSize,x, certAuthority, blockchain, popTable))
+    #     else : node = (Node(seed, False, port,message, self.protocol,self.committeeSize,x, certAuthority, blockchain, popTable))                
+    #     return node
 
     def initializeNodes(self):
-        CAReference = CA()
-        BlockchainReference = Blockchain()
+        certAuthority = CA()
+        blockchain = Blockchain()
+        emptyBlockchain = Blockchain()
+
         popTable = PopTable()
+        emptyPopTable = PopTable()
         certificates = []
         pops = {}
+
+        seed = secrets.token_bytes(32)
+        message =  bytes([1, 2, 3, 4, 5])
+        port = 5074
         for x in range(self.committeeSize):
             if self.protocol == 'pki':
-                if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, BlockchainReference, PopTable()))
-                else : self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, BlockchainReference, PopTable()))                
+                # node = self.createNode(secrets.token_bytes(32), port, message, certAuthority, blockchain,emptyPopTable,x,certificates,{})
+                if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, port,message, self.protocol,self.committeeSize,x, certAuthority, blockchain, emptyPopTable))
+                else : self.nodes.append(Node(secrets.token_bytes(32), False, port,message, self.protocol,self.committeeSize,x, certAuthority, blockchain, emptyPopTable))                
                 certificates.append(self.nodes[len(self.nodes)-1].cert)
             elif self.protocol == 'basic':
-                if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, NULL, PopTable()))
-                else : self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, NULL, PopTable()))
+                # node = self.createNode(secrets.token_bytes(32), port, message, certAuthority, blockchain,emptyPopTable,x,[],{})
+                if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, port,message, self.protocol,self.committeeSize,x, certAuthority, emptyBlockchain, emptyPopTable))
+                else : self.nodes.append(Node(secrets.token_bytes(32), False, port,message, self.protocol,self.committeeSize,x, certAuthority, emptyBlockchain, emptyPopTable))
             elif self.protocol == 'pop':
-                if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, NULL, popTable))
-                else : self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, NULL, popTable))
+                # node = self.createNode(secrets.token_bytes(32), port, message, certAuthority, blockchain,emptyPopTable,x,[],pops)                
+                if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, port,message, self.protocol,self.committeeSize,x, certAuthority, emptyBlockchain, popTable))
+                else : self.nodes.append(Node(secrets.token_bytes(32), False, port,message, self.protocol,self.committeeSize,x, certAuthority, emptyBlockchain, popTable))
                 pops[bytes(self.nodes[len(self.nodes)-1].pk)] = self.nodes[len(self.nodes)-1].pop
             elif self.protocol == 'le':
-                if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, NULL, PopTable()))
-                else : self.nodes.append(Node(secrets.token_bytes(32), False, 5074, bytes([1, 2, 3, 4, 5]), self.protocol,self.committeeSize,x, CAReference, NULL, PopTable()))
+                # node = self.createNode(secrets.token_bytes(32), port, message, certAuthority, blockchain,emptyPopTable,x,[],{})
+                if x == 0: self.nodes.append(Node(secrets.token_bytes(32), True, port,message, self.protocol,self.committeeSize,x, certAuthority, emptyBlockchain, emptyPopTable))
+                else : self.nodes.append(Node(secrets.token_bytes(32), False, port,message, self.protocol,self.committeeSize,x, certAuthority, emptyBlockchain, emptyPopTable))
             
-        BlockchainReference.addCerts(certificates)
+        blockchain.addCerts(certificates)
         popTable.addPops(pops)
         self.PBFT()
-        # print('cert count : ', len(certificates))
-        # for cert in certificates:
-        #     print('cert pk : ', cert.pk)
-        # print('node pk : ', self.nodes[0].pk)
-

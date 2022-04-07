@@ -44,8 +44,8 @@ def checkValidRound(committee):
 
 # creates a simulation for hardcoded sizes
 def simulationV2():
-    sizes = [40,45,50,55,60,65,70]
-    for size in sizes:
+    committeeSizes = [10,12,14,16]
+    for size in committeeSizes:
         validPKI = False
         validBasic = False
         validPop = False
@@ -77,8 +77,8 @@ def simulationV2():
 def simulation():        
     maxCommitteeSize = 30
     minCommitteeSize = 3
-    sizes = range(maxCommitteeSize)[minCommitteeSize:]
-    for size in sizes:
+    committeeSizes = range(maxCommitteeSize)[minCommitteeSize:]
+    for size in committeeSizes:
         validPKI = False
         validBasic = False
         validPop = False

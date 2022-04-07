@@ -381,7 +381,6 @@ class Node:
         if state == 'pre-prepare': self.handlePreprepare(client_socket, data)
 
         sig = data[:96]
-        metadata = data[96:]
         if self.protocol == 'pop' : self.handlePopResponse(data,sig)
         elif self.protocol == 'basic' : self.handleBasicResponse(data,sig)
         elif self.protocol == 'pki' : self.handlePKIResponse(data,sig)
