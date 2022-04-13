@@ -41,10 +41,10 @@ class Committee:
             if node.validated == False : 
                 self.validated = False
 
-    def checkNodeSize(self):
-        # we just use node two as a randomly chosen node to analyse the size of
-        node = self.nodes[2]
-        return node.nodeSize
+    def saveAnalysisData(self):
+        self.nodeToLeaderMsgSize = (self.nodes[2].nodeToLeaderMsgSize)
+        self.leaderToNodeMsgSize = (self.nodes[2].leaderToNodeMsgSize)
+        self.nodeSize = self.nodes[2].nodeSize 
 
     def PBFT(self):
         self.runState('pre-prepare')
@@ -53,10 +53,8 @@ class Committee:
         self.checkValidRound()
         self.runState('commit')
         self.checkValidRound()
-        self.nodeToLeaderMsgSize = (self.nodes[2].nodeToLeaderMsgSize)
-        self.leaderToNodeMsgSize = (self.nodes[2].leaderToNodeMsgSize)
-        self.nodeSize = self.checkNodeSize()
-        print('committee node size:  ', self.nodeSize)
+        # save analysis information
+        self.saveAnalysisData()
 
     def threadFunction(self, node, state):
         node.runSignature(state)

@@ -98,7 +98,7 @@ class Analyse():
             plt.xlabel('comittee size')
             plt.ylabel('Msg Size (bytes)')
             plt.legend()
-            plt.title('Message Size from Leader to Member')
+            plt.title('Message Size from Primary to Secondary Replica')
             path = 'results/'+'msgSizeLeadertoMemberComparison'+'.png'
             plt.savefig(path)
             plt.show()
@@ -114,7 +114,7 @@ class Analyse():
             plt.xlabel('Defence Mechanism')
             plt.ylabel('Msg Size (bytes)')
             plt.legend()
-            plt.title('Message Size from Member to Leader')
+            plt.title('Message Size from Secondary to Primary Replica')
             path = 'results/'+'msgSizeMembertoLeaderComparison'+'.png'
             plt.savefig(path)
             plt.show()
