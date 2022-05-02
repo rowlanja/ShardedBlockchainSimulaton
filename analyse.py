@@ -38,7 +38,7 @@ class Analyse():
             plt.plot(popComitteeSize, popTimes, label='Existing : Proof-of-Possession')
             plt.plot(basicComitteeSize, basicTimes, label='Existing : Distinct Messages')
             plt.plot(pktableComitteeSize, pktableTimes, label='Proposed : Public Key Cert Table ')
-            plt.plot(leaderExcludedComitteeSize, leaderExcludedTimes, label='Proposed : Leader Excluded')
+            # plt.plot(leaderExcludedComitteeSize, leaderExcludedTimes, label='Proposed : Leader Excluded')
 
             plt.xlabel('comittee size')
             plt.ylabel('Time taken to reach consensus (seconds)')
@@ -94,7 +94,7 @@ class Analyse():
             plt.plot(popComitteeSize, popLeaderToNodeMsgSizes, label='Existing : Proof-of-Possession')
             plt.plot(basicComitteeSize, basicLeaderToNodeMsgSizes, label='Existing : Distinct Messages')
             plt.plot(PKTComitteeSize, PKTLeaderToNodeMsgSizes, label='Proposed : Public Key Cert Table')
-            plt.plot(LEComitteeSize, LELeaderToNodeMsgSizes, label='Proposed : Leader Excluded')
+            # plt.plot(LEComitteeSize, LELeaderToNodeMsgSizes, label='Proposed : Leader Excluded')
             plt.xlabel('comittee size')
             plt.ylabel('Msg Size (bytes)')
             plt.legend()
@@ -104,8 +104,10 @@ class Analyse():
             plt.show()
             plt.clf()
 
-            barYs = [popNodeToLeaderMsgSizes[0], basicNodeToLeaderMsgSizes[0], PKTNodeToLeaderMsgSizes[0], LENodeToLeaderMsgSizes[0]]
-            barXs = ['PoP', 'DM', 'PKT', 'LE']
+            # barYs = [popNodeToLeaderMsgSizes[0], basicNodeToLeaderMsgSizes[0], PKTNodeToLeaderMsgSizes[0], LENodeToLeaderMsgSizes[0]]
+            barYs = [popNodeToLeaderMsgSizes[0], basicNodeToLeaderMsgSizes[0], PKTNodeToLeaderMsgSizes[0]]
+
+            barXs = ['PoP', 'DM', 'PKT']
             # plt.plot(popComitteeSize, popNodeToLeaderMsgSizes, label='Existing : Proof-of-Possession')
             # plt.plot(basicComitteeSize, basicNodeToLeaderMsgSizes, label='Existing : Distinct Messages')
             # plt.plot(PKTComitteeSize, PKTNodeToLeaderMsgSizes, label='Proposed : Public Key Cert Table')
@@ -157,7 +159,7 @@ class Analyse():
             plt.plot(popComitteeSize, popNodeSizes, label='Existing : Proof-of-Possession')
             plt.plot(basicComitteeSize, basicNodeSizes, label='Existing : Distinct Messages')
             plt.plot(PKTComitteeSize, PKTNodeSizes, label='Proposed : Public Key Cert Table')
-            plt.plot(LEComitteeSize, LENodeSizes, label='Proposed : Leader Excluded')
+            # plt.plot(LEComitteeSize, LENodeSizes, label='Proposed : Leader Excluded')
             plt.xlabel('Comittee size')
             plt.ylabel('Node Size (bytes)')
             plt.legend()
@@ -174,5 +176,7 @@ class Analyse():
         time = datetime.now()
 
 
-# analysis = Analyse()
-# analysis.displayNodeSize()
+analysis = Analyse()
+analysis.displaySpeed()
+analysis.displayMsgSize()
+analysis.displayNodeSize()
